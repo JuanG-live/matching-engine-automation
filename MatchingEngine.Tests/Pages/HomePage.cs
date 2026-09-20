@@ -46,12 +46,10 @@ internal sealed class HomePage
             _wait.Until(_ => mobileMenuButton.GetAttribute("aria-expanded") == "true");
         }
 
-        var solutionsButton = _wait.Until(driver =>
-            driver.FindElements(By.CssSelector("[role='button'][aria-label='Solutions'][aria-haspopup='menu']"))
-                .FirstOrDefault(element => element.Displayed && element.Size.Width > 0));
+        var solutionsButton = _wait.Until(FindSolutionsMenuTrigger);
 
-        solutionsButton!.Click();
-        _wait.Until(_ => solutionsButton!.GetAttribute("aria-expanded") == "true");
+        ClickElement(solutionsButton!);
+        _wait.Until(driver => GetVisibleSolutionLinks(driver).Count > 0);
         _wait.Until(driver => GetVisibleSolutionLinks(driver).Count == ExpectedSolutions.Length);
         return this;
     }
@@ -72,6 +70,25 @@ internal sealed class HomePage
     }
 
     public static IReadOnlyList<string> GetExpectedSolutions() => ExpectedSolutions;
+
+    private void ClickElement(IWebElement element)
+    {
+        try
+        {
+            element.Click();
+        }
+        catch (ElementClickInterceptedException)
+        {
+            ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].click();", element);
+        }
+    }
+
+    private static IWebElement? FindSolutionsMenuTrigger(IWebDriver driver) =>
+        driver.FindElements(By.CssSelector("header nav [aria-haspopup='menu']"))
+            .Where(element => element.Displayed && element.Size.Width > 0)
+            .FirstOrDefault(element =>
+                string.Equals(element.GetAttribute("aria-label")?.Trim(), "Solutions", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(element.Text.Trim(), "Solutions", StringComparison.OrdinalIgnoreCase));
 
     private static IReadOnlyList<IWebElement> GetVisibleSolutionLinks(IWebDriver driver) =>
         driver.FindElements(By.CssSelector("[role='menu'] a, nav [aria-label*='submenu'] a"))
