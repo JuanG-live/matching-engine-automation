@@ -47,12 +47,10 @@ internal sealed class HomePage
         }
 
         var solutionsButton = _wait.Until(driver =>
-            driver.FindElements(By.XPath("//button[normalize-space()='Solutions' and not(ancestor::footer)]"))
-                .FirstOrDefault());
+            driver.FindElements(By.CssSelector("[role='button'][aria-label='Solutions'][aria-haspopup='menu']"))
+                .FirstOrDefault(element => element.Displayed && element.Size.Width > 0));
 
-        ((IJavaScriptExecutor)_driver).ExecuteScript(
-            "arguments[0].click();",
-            solutionsButton);
+        solutionsButton!.Click();
         _wait.Until(_ => solutionsButton!.GetAttribute("aria-expanded") == "true");
         _wait.Until(driver => GetVisibleSolutionLinks(driver).Count == ExpectedSolutions.Length);
         return this;
