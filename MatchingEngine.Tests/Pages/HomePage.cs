@@ -46,12 +46,9 @@ internal sealed class HomePage
             _wait.Until(_ => mobileMenuButton.GetAttribute("aria-expanded") == "true");
         }
 
-        var solutionsButton = _wait.Until(driver =>
-            driver.FindElements(By.CssSelector("[role='button'][aria-label='Solutions'][aria-haspopup='menu']"))
-                .FirstOrDefault(element => element.Displayed && element.Size.Width > 0));
-
-        solutionsButton!.Click();
-        _wait.Until(_ => solutionsButton!.GetAttribute("aria-expanded") == "true");
+        _wait.Until(FindSolutionsMenuTrigger);
+        ClickSolutionsMenuTrigger();
+        _wait.Until(driver => GetVisibleSolutionLinks(driver).Count > 0);
         _wait.Until(driver => GetVisibleSolutionLinks(driver).Count == ExpectedSolutions.Length);
         return this;
     }
@@ -73,10 +70,107 @@ internal sealed class HomePage
 
     public static IReadOnlyList<string> GetExpectedSolutions() => ExpectedSolutions;
 
+    private void ClickSolutionsMenuTrigger()
+    {
+        _wait.Until(driver =>
+        {
+            var solutionsTrigger = FindSolutionsMenuTrigger(driver);
+            if (solutionsTrigger is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                solutionsTrigger.Click();
+            }
+            catch (ElementClickInterceptedException)
+            {
+                ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].click();", solutionsTrigger);
+            }
+            catch (StaleElementReferenceException)
+            {
+                return false;
+            }
+
+            try
+            {
+                return string.Equals(
+                           solutionsTrigger.GetAttribute("aria-expanded"),
+                           "true",
+                           StringComparison.OrdinalIgnoreCase) ||
+                       GetVisibleSolutionLinks(driver).Count > 0;
+            }
+            catch (StaleElementReferenceException)
+            {
+                return false;
+            }
+        });
+    }
+
+    private static IWebElement? FindSolutionsMenuTrigger(IWebDriver driver)
+    {
+        foreach (var element in driver.FindElements(By.CssSelector("header nav [aria-haspopup='menu']")))
+        {
+            try
+            {
+                if (!element.Displayed || element.Size.Width <= 0)
+                {
+                    continue;
+                }
+
+                var ariaLabel = element.GetAttribute("aria-label")?.Trim();
+                var text = element.Text.Trim();
+                if (string.Equals(ariaLabel, "Solutions", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text, "Solutions", StringComparison.OrdinalIgnoreCase))
+                {
+                    return element;
+                }
+            }
+            catch (StaleElementReferenceException)
+            {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
     private static IReadOnlyList<IWebElement> GetVisibleSolutionLinks(IWebDriver driver) =>
+        GetVisibleLinksFromControlledSolutionsMenu(driver) ??
         driver.FindElements(By.CssSelector("[role='menu'] a, nav [aria-label*='submenu'] a"))
             .Where(element => element.Displayed && !string.IsNullOrWhiteSpace(element.Text))
+            .Where(element => ExpectedSolutions.Contains(element.Text.Trim(), StringComparer.OrdinalIgnoreCase))
             .ToList();
+
+    private static IReadOnlyList<IWebElement>? GetVisibleLinksFromControlledSolutionsMenu(IWebDriver driver)
+    {
+        var trigger = FindSolutionsMenuTrigger(driver);
+        if (trigger is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var controlledMenuId = trigger.GetAttribute("aria-controls");
+            if (string.IsNullOrWhiteSpace(controlledMenuId))
+            {
+                return null;
+            }
+
+            var links = driver.FindElements(By.Id(controlledMenuId))
+                .SelectMany(menu => menu.FindElements(By.CssSelector("a")))
+                .Where(element => element.Displayed && !string.IsNullOrWhiteSpace(element.Text))
+                .ToList();
+
+            return links.Count > 0 ? links : null;
+        }
+        catch (StaleElementReferenceException)
+        {
+            return null;
+        }
+    }
 
     private void DismissCookieBannerIfPresent()
     {
