@@ -48,8 +48,12 @@ internal sealed class HomePage
 
         var solutionsButton = _wait.Until(driver =>
             driver.FindElements(By.XPath("//button[normalize-space()='Solutions']"))
-                .FirstOrDefault(element => element.Displayed));
+                .FirstOrDefault(IsInteractable));
 
+        ((IJavaScriptExecutor)_driver).ExecuteScript(
+            "arguments[0].scrollIntoView({block: 'center'});",
+            solutionsButton);
+        _wait.Until(_ => IsInteractable(solutionsButton!));
         solutionsButton!.Click();
         _wait.Until(driver => solutionsButton.GetAttribute("aria-expanded") == "true");
         _wait.Until(driver => GetVisibleSolutionLinks(driver).Count == ExpectedSolutions.Length);
@@ -77,6 +81,12 @@ internal sealed class HomePage
         driver.FindElements(By.CssSelector("[role='menu'] a, nav [aria-label*='submenu'] a"))
             .Where(element => element.Displayed && !string.IsNullOrWhiteSpace(element.Text))
             .ToList();
+
+    private static bool IsInteractable(IWebElement element) =>
+        element.Displayed &&
+        element.Enabled &&
+        element.Size.Width > 0 &&
+        element.Size.Height > 0;
 
     private void DismissCookieBannerIfPresent()
     {
