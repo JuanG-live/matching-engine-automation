@@ -40,12 +40,12 @@ internal sealed class DistributionProcessingPage
     public string GetSectionContent()
     {
         var heading = FindSectionHeading();
-        return (string)((IJavaScriptExecutor)_driver).ExecuteScript(
+        return Convert.ToString(((IJavaScriptExecutor)_driver).ExecuteScript(
             """
             const heading = arguments[0];
             return heading.closest('header')?.innerText ?? heading.innerText;
             """,
-            heading);
+            heading)) ?? string.Empty;
     }
 
     public static IReadOnlyList<string> GetExpectedBenefits() => ExpectedBenefits;
