@@ -47,7 +47,7 @@ internal sealed class HomePage
         }
 
         var solutionsButton = _wait.Until(driver =>
-            driver.FindElements(By.XPath("//nav//button[normalize-space()='Solutions']"))
+            driver.FindElements(By.XPath("//button[normalize-space()='Solutions' and not(ancestor::footer)]"))
                 .FirstOrDefault());
 
         ((IJavaScriptExecutor)_driver).ExecuteScript(
